@@ -45,7 +45,7 @@ pub fn run(args: RunConfig) -> Result<()> {
             let backend = TermionBackend::new(stdout);
             let mut terminal = Terminal::new(backend)?;
 
-            let app = App::new(soc_info, args.colors(), args.history_size);
+            let app = App::new(soc_info, args.colors(), args.history_size, args.log_scale);
 
             let result = main_ui_loop(
                 &mut terminal,

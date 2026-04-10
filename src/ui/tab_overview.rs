@@ -14,6 +14,7 @@ use crate::{
     metric_key::{ClusterId, MetricKey},
     metrics,
     modules::soc::SocInfo,
+    scaling,
     units,
 };
 
@@ -96,17 +97,18 @@ pub(crate) fn draw_overview_tab(f: &mut Frame, app: &App, area: Rect) {
     let pkg_area = vertical_chunks[2];
     let mem_area = vertical_chunks[3];
 
-    draw_cpu_clusters_usage_block(f, metrics, &app.history, &app.colors, cpu_area);
+    draw_cpu_clusters_usage_block(f, metrics, &app.history, &app.colors, app.log_scale, cpu_area);
     draw_gpu_ane_usage_block(
         f,
         metrics,
         &app.soc_info,
         &app.history,
         &app.colors,
+        app.log_scale,
         gpu_area,
     );
     draw_pkg_thm_usage_block(f, metrics, &app.history, &app.colors, pkg_area);
-    draw_mem_usage_block(f, metrics, &app.history, &app.colors, mem_area);
+    draw_mem_usage_block(f, metrics, &app.history, &app.colors, app.log_scale, mem_area);
 }
 
 /// Draw the CPU clusters usage block.
@@ -137,6 +139,7 @@ fn draw_cpu_clusters_usage_block(
     metrics: &metrics::Metrics,
     history: &History,
     colors: &AppColors,
+    log_scale: bool,
     area: Rect,
 ) {
     let num_cluster_blocks = num_blocks_for(metrics.e_clusters.len())
@@ -186,7 +189,7 @@ fn draw_cpu_clusters_usage_block(
             1 => {
                 let cluster = &clu_slice[0];
                 let cluster_id = ClusterId::efficiency((chunk_idx * 2) as u8);
-                draw_cluster_overall_metrics(f, cluster, cluster_id, history, colors, *area);
+                draw_cluster_overall_metrics(f, cluster, cluster_id, history, colors, log_scale, *area);
             }
             2 => {
                 let (left_cluster, right_cluster) = (&clu_slice[0], &clu_slice[1]);
@@ -200,6 +203,7 @@ fn draw_cpu_clusters_usage_block(
                     right_id,
                     history,
                     colors,
+                    log_scale,
                     *area,
                 );
             }
@@ -219,7 +223,7 @@ fn draw_cpu_clusters_usage_block(
             1 => {
                 let cluster = &clu_slice[0];
                 let cluster_id = ClusterId::performance((chunk_idx * 2) as u8);
-                draw_cluster_overall_metrics(f, cluster, cluster_id, history, colors, *area);
+                draw_cluster_overall_metrics(f, cluster, cluster_id, history, colors, log_scale, *area);
             }
             2 => {
                 let (left_cluster, right_cluster) = (&clu_slice[0], &clu_slice[1]);
@@ -233,6 +237,7 @@ fn draw_cpu_clusters_usage_block(
                     right_id,
                     history,
                     colors,
+                    log_scale,
                     *area,
                 );
             }
@@ -252,7 +257,7 @@ fn draw_cpu_clusters_usage_block(
             1 => {
                 let cluster = &clu_slice[0];
                 let cluster_id = ClusterId::super_core((chunk_idx * 2) as u8);
-                draw_cluster_overall_metrics(f, cluster, cluster_id, history, colors, *area);
+                draw_cluster_overall_metrics(f, cluster, cluster_id, history, colors, log_scale, *area);
             }
             2 => {
                 let (left_cluster, right_cluster) = (&clu_slice[0], &clu_slice[1]);
@@ -265,8 +270,7 @@ fn draw_cpu_clusters_usage_block(
                     right_cluster,
                     right_id,
                     history,
-                    colors,
-                    *area,
+                    colors,                    log_scale,                    *area,
                 );
             }
             _ => unreachable!(),
@@ -288,6 +292,7 @@ fn draw_cluster_overall_metrics(
     cluster_id: ClusterId,
     history: &History,
     colors: &AppColors,
+    log_scale: bool,
     area: Rect,
 ) {
     let chunks = Layout::default()
@@ -313,7 +318,7 @@ fn draw_cluster_overall_metrics(
     let gauge = Gauge::default()
         .block(Block::default().title(title))
         .gauge_style(Style::default().fg(colors.gauge_fg()).bg(colors.gauge_bg()))
-        .ratio(cluster.active_ratio() as f64);
+        .ratio(scaling::apply_scaling_f32(cluster.active_ratio(), log_scale) as f64);
 
     f.render_widget(gauge, top_area);
 
@@ -349,6 +354,7 @@ fn draw_cluster_pair_overall_metrics(
     right_id: ClusterId,
     history: &History,
     colors: &AppColors,
+    log_scale: bool,
     area: Rect,
 ) {
     let horizontal_chunks = Layout::default()
@@ -363,8 +369,8 @@ fn draw_cluster_pair_overall_metrics(
     let left_area = horizontal_chunks[0];
     let right_area = horizontal_chunks[2];
 
-    draw_cluster_overall_metrics(f, left_cluster, left_id, history, colors, left_area);
-    draw_cluster_overall_metrics(f, right_cluster, right_id, history, colors, right_area);
+    draw_cluster_overall_metrics(f, left_cluster, left_id, history, colors, log_scale, left_area);
+    draw_cluster_overall_metrics(f, right_cluster, right_id, history, colors, log_scale, right_area);
 }
 
 /// Draw the GPU & ANE usage block.
@@ -383,6 +389,7 @@ fn draw_gpu_ane_usage_block(
     soc_info: &SocInfo,
     history: &History,
     colors: &AppColors,
+    log_scale: bool,
     area: Rect,
 ) {
     let block = Block::default().title(" GPU & ANE ").borders(Borders::ALL);
@@ -432,7 +439,7 @@ fn draw_gpu_ane_usage_block(
             Style::default().fg(colors.gauge_fg()).bg(colors.gauge_bg()),
             // .add_modifier(Modifier::ITALIC | Modifier::BOLD),
         )
-        .ratio(gpu.active_ratio);
+        .ratio(scaling::apply_scaling(gpu.active_ratio as f64, log_scale));
 
     f.render_widget(gauge, top_left_area);
 
@@ -462,7 +469,7 @@ fn draw_gpu_ane_usage_block(
     let gauge = Gauge::default()
         .block(Block::default().title(title))
         .gauge_style(Style::default().fg(colors.gauge_fg()).bg(colors.gauge_bg()))
-        .ratio(ane_active_ratio);
+        .ratio(scaling::apply_scaling(ane_active_ratio, log_scale));
 
     f.render_widget(gauge, top_right_area);
 
@@ -513,6 +520,7 @@ fn draw_mem_usage_block(
     metrics: &metrics::Metrics,
     history: &History,
     colors: &AppColors,
+    log_scale: bool,
     area: Rect,
 ) {
     let block = Block::default()
@@ -566,7 +574,7 @@ fn draw_mem_usage_block(
                 Style::default().fg(colors.gauge_fg()).bg(colors.gauge_bg()),
                 // .add_modifier(Modifier::ITALIC | Modifier::BOLD),
             )
-            .ratio(ram_usage_ratio);
+            .ratio(scaling::apply_scaling(ram_usage_ratio, log_scale));
 
         f.render_widget(gauge, top_left_area);
 
@@ -600,7 +608,7 @@ fn draw_mem_usage_block(
                 Style::default().fg(colors.gauge_fg()).bg(colors.gauge_bg()),
                 // .add_modifier(Modifier::ITALIC | Modifier::BOLD),
             )
-            .ratio(swap_usage_ratio);
+            .ratio(scaling::apply_scaling(swap_usage_ratio, log_scale));
 
         f.render_widget(gauge, top_right_area);
 

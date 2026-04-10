@@ -97,6 +97,9 @@ pub(crate) struct App<'a> {
     /// - History background color, default: 7 (white).
     pub(crate) colors: AppColors,
 
+    /// Use logarithmic scale for gauge ratios.
+    pub(crate) log_scale: bool,
+
     /// Time of last update.
     pub(crate) last_update: std::time::Instant,
 
@@ -115,11 +118,12 @@ pub(crate) struct App<'a> {
 
 impl<'a> App<'a> {
     /// Returns a new `App`.
-    pub fn new(soc_info: SocInfo, colors: UiColors, history_size: usize) -> Self {
+    pub fn new(soc_info: SocInfo, colors: UiColors, history_size: usize, log_scale: bool) -> Self {
         Self {
             should_quit: false,
             tabs: TabsState::new(vec!["Overview", "CPU", "GPU", "Memory", "SoC"]),
             colors: AppColors { raw_colors: colors },
+            log_scale,
             last_update: std::time::Instant::now(),
             metrics: None,
             soc_info,

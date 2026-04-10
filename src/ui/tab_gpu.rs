@@ -13,6 +13,7 @@ use crate::{
     app::{App, AppColors, History, HistoryExt},
     metric_key::MetricKey,
     metrics::{GpuMetrics, Metrics},
+    scaling,
     units,
 };
 
@@ -43,12 +44,12 @@ pub(crate) fn draw_gpu_tab(f: &mut Frame, app: &App, area: Rect) {
     let thermal_area = gpu_chunks[1];
     let freq_table_area = gpu_chunks[2];
 
-    draw_gpu(f, metrics, &app.history, &app.colors, gpu_area);
+    draw_gpu(f, metrics, &app.history, &app.colors, app.log_scale, gpu_area);
     draw_thermal_pressure(f, metrics, &app.colors, thermal_area);
     draw_freq_table(f, &metrics.gpu, freq_table_area);
 }
 
-fn draw_gpu(f: &mut Frame, metrics: &Metrics, history: &History, colors: &AppColors, area: Rect) {
+fn draw_gpu(f: &mut Frame, metrics: &Metrics, history: &History, colors: &AppColors, log_scale: bool, area: Rect) {
     let block = Block::default().title("GPU: ").borders(Borders::ALL);
     f.render_widget(block, area);
 
@@ -104,7 +105,7 @@ fn draw_gpu(f: &mut Frame, metrics: &Metrics, history: &History, colors: &AppCol
         .filled_symbol(symbols::line::THICK.horizontal)
         .unfilled_symbol(symbols::line::THICK.horizontal)
         .label(label)
-        .ratio(active_ratio);
+        .ratio(scaling::apply_scaling(active_ratio, log_scale));
     f.render_widget(gauge, acti_gauge_area);
 
     //
@@ -147,12 +148,14 @@ fn draw_gpu(f: &mut Frame, metrics: &Metrics, history: &History, colors: &AppCol
     let par = Paragraph::new(Span::from(freq_value_text));
     f.render_widget(par, freq_value_area);
 
+    let gpu_freq_ratio = gpu.freq_ratio();
+    let gpu_freq_label = format!("{:.0}%", gpu_freq_ratio * 100.0);
     let gauge = LineGauge::default()
         .filled_style(Style::default().fg(colors.gauge_fg()).bg(colors.gauge_bg()))
         .filled_symbol(symbols::line::THICK.horizontal)
         .unfilled_symbol(symbols::line::THICK.horizontal)
-        // .label(label)
-        .ratio(gpu.freq_ratio());
+        .label(gpu_freq_label)
+        .ratio(scaling::apply_scaling(gpu_freq_ratio, log_scale));
     f.render_widget(gauge, freq_gauge_area);
 
     //

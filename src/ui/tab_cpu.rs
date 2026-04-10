@@ -13,6 +13,7 @@ use crate::{
     app::{App, AppColors, History, HistoryExt},
     metric_key::MetricKey,
     metrics::{ClusterMetrics, CpuMetrics, Metrics},
+    scaling,
     units,
 };
 
@@ -98,19 +99,19 @@ pub(crate) fn draw_cpu_tab(f: &mut Frame, app: &App, area: Rect) {
         let cluster_area = clu_area_iter
             .next()
             .expect("layout: expected area for E-cluster");
-        draw_cpu_cluster(f, cluster, &app.history, &app.colors, *cluster_area);
+        draw_cpu_cluster(f, cluster, &app.history, &app.colors, app.log_scale, *cluster_area);
     }
     for cluster in metrics.p_clusters.iter() {
         let cluster_area = clu_area_iter
             .next()
             .expect("layout: expected area for P-cluster");
-        draw_cpu_cluster(f, cluster, &app.history, &app.colors, *cluster_area);
+        draw_cpu_cluster(f, cluster, &app.history, &app.colors, app.log_scale, *cluster_area);
     }
     for cluster in metrics.s_clusters.iter() {
         let cluster_area = clu_area_iter
             .next()
             .expect("layout: expected area for S-cluster");
-        draw_cpu_cluster(f, cluster, &app.history, &app.colors, *cluster_area);
+        draw_cpu_cluster(f, cluster, &app.history, &app.colors, app.log_scale, *cluster_area);
     }
 
     let freq_table_area = clu_area_iter
@@ -124,6 +125,7 @@ fn draw_cpu_cluster(
     cluster: &ClusterMetrics,
     history: &History,
     colors: &AppColors,
+    log_scale: bool,
     area: Rect,
 ) {
     let cluster_name = format!(" {}: ", cluster.name);
@@ -144,11 +146,11 @@ fn draw_cpu_cluster(
         let cpu_area = cpu_area_iter
             .next()
             .expect("layout: expected area for CPU core");
-        draw_cpu(f, cpu, history, colors, *cpu_area);
+        draw_cpu(f, cpu, history, colors, log_scale, *cpu_area);
     }
 }
 
-fn draw_cpu(f: &mut Frame, cpu: &CpuMetrics, history: &History, colors: &AppColors, area: Rect) {
+fn draw_cpu(f: &mut Frame, cpu: &CpuMetrics, history: &History, colors: &AppColors, log_scale: bool, area: Rect) {
     let horiz_chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Length(5), Constraint::Min(0)])
@@ -208,7 +210,7 @@ fn draw_cpu(f: &mut Frame, cpu: &CpuMetrics, history: &History, colors: &AppColo
         .filled_symbol(symbols::line::THICK.horizontal)
         .unfilled_symbol(symbols::line::THICK.horizontal)
         .label(label)
-        .ratio(active_ratio);
+        .ratio(scaling::apply_scaling(active_ratio, log_scale));
     f.render_widget(gauge, acti_gauge_area);
 
     //
@@ -251,12 +253,14 @@ fn draw_cpu(f: &mut Frame, cpu: &CpuMetrics, history: &History, colors: &AppColo
     let par = Paragraph::new(Span::from(freq_value_text));
     f.render_widget(par, freq_value_area);
 
+    let freq_ratio = cpu.freq_ratio();
+    let freq_label = format!("{:.0}%", freq_ratio * 100.0);
     let gauge = LineGauge::default()
         .filled_style(Style::default().fg(colors.gauge_fg()).bg(colors.gauge_bg()))
         .filled_symbol(symbols::line::THICK.horizontal)
         .unfilled_symbol(symbols::line::THICK.horizontal)
-        // .label(label)
-        .ratio(cpu.freq_ratio());
+        .label(freq_label)
+        .ratio(scaling::apply_scaling(freq_ratio, log_scale));
     f.render_widget(gauge, freq_gauge_area);
 }
 

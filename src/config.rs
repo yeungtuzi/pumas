@@ -70,6 +70,13 @@ pub struct RunConfig {
     /// Print metrics to stdout as JSON instead of running the UI.
     #[arg(long, default_value = "false")]
     pub json: bool,
+
+    /// Use logarithmic scale for gauge and sparkline ratios.
+    ///
+    /// When enabled, power and frequency gauges will use a logarithmic scale,
+    /// making low values more visible on the display.
+    #[arg(long, default_value = "false")]
+    pub log_scale: bool,
 }
 
 impl RunConfig {

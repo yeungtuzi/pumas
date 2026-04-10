@@ -295,6 +295,7 @@ mod metric_key;
 mod metrics;
 mod modules;
 pub mod monitor;
+mod scaling;
 mod signal;
 mod ui;
 mod units;
